@@ -1,0 +1,224 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# # Import relavent packages
+
+# In[1]:
+
+
+import geopandas
+from shapely.geometry import Point
+import missingno as msn
+import numpy as np
+import pandas as pd
+import shapefile as shp
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+# In[2]:
+
+
+# Initializing visual set
+get_ipython().run_line_magic('matplotlib', 'inline')
+
+
+# Read the shape file from the computer
+
+# In[3]:
+
+
+shp_path = '/Users/admin/Downloads/aqueductglobalmaps21shp/aqueduct_global_dl_20150409.shp'
+sf = shp.Reader(shp_path)
+
+
+# In[4]:
+
+
+# type of file
+type(sf)
+
+
+# Converting shapefile data on Pandas dataframe
+
+# In[5]:
+
+
+def read_shapefile(sf):
+    """
+    Read a shapefile into a Pandas dataframe with a 'coords' 
+    column holding the geometry information. This uses the pyshp
+    package
+    """
+    fields = [x[0] for x in sf.fields][1:]
+    records = sf.records()
+    shps = [s.points for s in sf.shapes()]
+    df = pd.DataFrame(columns=fields, data=records)
+    df = df.assign(coords=shps)
+    return df
+
+
+# In[6]:
+
+
+df = read_shapefile(sf)
+df.shape
+
+
+# In[7]:
+
+
+# making sure its a data frame
+type(df)
+
+
+# In[8]:
+
+
+# random sample of 5 rows 
+df.sample(5)
+
+
+# Exploratory data analysis: 
+# 1. Checking the information, data type
+# 2. Any missing value
+# 3. Statistical data
+
+# In[9]:
+
+
+# Checking the information, data type
+df.info()
+
+
+# In[10]:
+
+
+# checking for any missing value
+msn.bar(df, color='darkolivegreen');
+
+
+# In[11]:
+
+
+# statistical data
+df.describe()
+
+
+# Creating a Data Frame with limited data from df
+
+# In[12]:
+
+
+frame = pd.DataFrame({
+    'Shape_Leng': df['Shape_Leng'],
+    'Shape_Area': df['Shape_Area'],
+    'COUNTRY': df['COUNTRY'],
+    'BWS': df['BWS'],
+    'BWS_s': df['BWS_s'],
+    'BWS_cat': df['BWS_cat'],
+    'coords': df['coords']
+    }
+)
+
+frame.head()
+
+
+# Restricting the dataframe only to India
+
+# In[13]:
+
+
+frame = frame[frame.COUNTRY=='India']
+frame.head()
+
+
+# In[14]:
+
+
+# Re-indexing the data frame
+frame = frame.reset_index(drop=True)
+frame.head()
+
+
+# In[15]:
+
+
+# length of frame.coords[0]
+len(frame.coords[0])
+
+
+# In[16]:
+
+
+len(frame.coords)
+
+
+# Creating a data frame called 'new_frame' to which I append all the coordinates from the previous data frame 'frame'. This new data frame has two columns for now, namely, latitude and longitude. The coordinates are thus easier to work with as compared with the 'coords' column in the previous data frame 'frame'.
+
+# In[17]:
+
+
+new_frame = pd.DataFrame(columns=['latitude', 'longitude'])
+for i in range(0,len(frame.coords)):
+    new_frame = new_frame.append(pd.DataFrame(frame.coords[i], columns=['latitude', 'longitude'])) 
+new_frame
+
+
+# In[18]:
+
+
+new_frame['coordinates'] = new_frame[['longitude', 'latitude']].values.tolist()
+new_frame.head()
+
+
+# In[19]:
+
+
+# checking the type of the coordinates column 
+type(new_frame['coordinates'])
+
+
+# In[20]:
+
+
+# Change the coordinates to a geoPoint
+new_frame['coordinates'] = new_frame['coordinates'].apply(Point)
+new_frame.head()
+
+
+# Converting the data frame 'newFrame' to a Geo frame
+
+# In[21]:
+
+
+# Convert the count df to geodf
+new_frame = geopandas.GeoDataFrame(new_frame, geometry='coordinates')
+new_frame.head()
+
+
+# In[22]:
+
+
+# making sure that 'newFrame' is now a geo data frame
+type(new_frame)
+
+
+# In[23]:
+
+
+# checking the type of the coordinates column 
+type(new_frame['coordinates'])
+
+
+# # Visualization 
+
+# Now that we have successfully converted the data frame into a geo data frame, which contains coordinates that correspond to different locations in India, we can plot them and see what we get!
+
+# In[24]:
+
+
+new_frame.plot(figsize=(30,20));
+
+
+# Woops!!! It's India but upside down! Well this is good progress.
